@@ -126,7 +126,7 @@ class RAGPipeline:
         """
         return self.preprocessing_pipeline.process_directory(directory, file_pattern, recursive, custom_metadata)
     
-    def query(self, query_text: str, top_k: int = None, score_threshold: float = 0.0, use_rerank: bool = True) -> str:
+    def query(self, query_text: str, top_k: int = None, score_threshold: float = 0.0, use_rerank: bool = True, generate_streaming: bool = False) -> str:
         """
         查询并生成回答
         
@@ -162,6 +162,8 @@ class RAGPipeline:
             contexts = self.reranker.rerank(query_text, contexts)
             contexts = contexts[:self.config.rerank_top_n]
             self.logger.info(f"Reranked contexts, final count: {len(contexts)}")
+
+        # TODO： filter重复文本
         
         # 构建Prompt
         self.logger.debug("Building prompt for LLM...")
@@ -170,10 +172,17 @@ class RAGPipeline:
         
         # 生成回答
         self.logger.debug("Generating response from LLM...")
-        response = self.llm.generate(prompt)
-        self.logger.info(f"Generated response with {len(response)} characters")
+        response = self.llm.generate(prompt, streaming=generate_streaming)
         
-        return response
+        # 处理流式和非流式响应
+        if generate_streaming:
+            # 流式响应，返回生成器
+            self.logger.info("Returning streaming response generator")
+            return response
+        else:
+            # 非流式响应，记录长度
+            self.logger.info(f"Generated response with {len(response)} characters")
+            return response
     
     def get_pipeline_info(self) -> Dict[str, Any]:
         """获取管道配置信息"""

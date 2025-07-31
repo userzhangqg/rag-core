@@ -126,6 +126,7 @@ class LocalAPILLM(LLMBase):
         """
         streaming = kwargs.get('streaming', False)
         self.logger.debug(f"Starting text generation: prompt='{prompt[:50]}...', streaming={streaming}")
+        # self.logger.debug(prompt)
         
         result = self._make_api_request(prompt, **kwargs)
         

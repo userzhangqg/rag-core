@@ -56,12 +56,12 @@ logging:
     # 核心模块
     parser: DEBUG
     chunking: DEBUG
-    embedding: INFO
-    vector: INFO
-    retrieval: INFO
-    reranker: INFO
-    PromptEngine: INFO
-    llm: INFO
+    embedding: DEBUG
+    vector: DEBUG
+    retrieval: DEBUG
+    reranker: DEBUG
+    PromptEngine: DEBUG
+    llm: DEBUG
     
     
     # Pipeline模块
@@ -85,5 +85,5 @@ rag:
   remove_images: true
   enable_metadata: true
   batch_size: 32
-  retrieve_top_k: 50
+  retrieve_top_k: 20
   rerank_top_n: 5
