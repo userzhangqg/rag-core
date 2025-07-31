@@ -7,10 +7,19 @@ Embedding Base Module for RAG Core System
 
 from abc import ABC, abstractmethod
 from typing import List, Union
+from utils.logger import get_module_logger
+from conf.config import RAGConfig
 
 
 class EmbeddingBase(ABC):
     """Base class for text embedding implementations."""
+    
+    def __init__(self):
+        """
+        Initialize the embedding base class.
+        """
+        self.logger = get_module_logger('embedding')
+        self.logger.debug("Initializing EmbeddingBase")
     
     @abstractmethod
     def embed_documents(self, texts: List[str]) -> List[List[float]]:

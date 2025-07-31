@@ -12,7 +12,7 @@ from pathlib import Path
 import yaml
 
 from core.pipeline.rag_pipeline import RAGPipeline, RAGConfig
-from conf.config import Config
+from utils.logger import setup_logger
 
 
 def upload_file(file_path: str, config_path: str = None):
@@ -33,12 +33,18 @@ def upload_file(file_path: str, config_path: str = None):
         embedding_config = file_config.get('embedding', {})
         vector_db_config = file_config.get('vector_db', {})
         
+        # Get default configuration
+        default_config = RAGConfig.from_config_file()
+
+        print(f"Default configuration:\n{default_config}\n\n")
+        setup_logger(default_config)
+        
         rag_config = RAGConfig(
-            embedding_provider=embedding_config.get('provider', Config.EMBEDDING_PROVIDER),
+            embedding_provider=embedding_config.get('provider', default_config.embedding_provider),
             embedding_api_key=embedding_config.get('api_key'),
             embedding_model_name=embedding_config.get('model_name'),
             embedding_api_url=embedding_config.get('api_url'),
-            vector_db_url=vector_db_config.get('url', Config.VECTOR_DB_URL)
+            vector_db_url=vector_db_config.get('url', default_config.vector_db_url)
         )
         pipeline = RAGPipeline(rag_config)
         print(f"Using configuration from: {config_path}")
@@ -47,7 +53,12 @@ def upload_file(file_path: str, config_path: str = None):
         pipeline = RAGPipeline()
     else:
         # Use default configuration
-        pipeline = RAGPipeline()
+        # Get default configuration
+        default_config = RAGConfig.from_config_file()
+
+        print(f"Default configuration:\n{default_config}\n\n")
+        setup_logger(default_config)
+        pipeline = RAGPipeline(default_config)
         print("Using default system configuration.")
     
     try:

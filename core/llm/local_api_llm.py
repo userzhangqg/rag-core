@@ -22,10 +22,12 @@ class LocalAPILLM(LLMBase):
         Args:
             api_url: URL of the local LLM API
         """
+        super().__init__()
         self.api_url = api_url
         self.headers = {
             "Content-Type": "application/json"
         }
+        self.logger.info(f"LocalAPILLM initialized with API URL: {api_url}")
     
     def _make_api_request(self, query: str, system_prompt: str = "You are a helpful assistant.", 
                          top_k: int = 1, max_output_length: int = 8192, 
@@ -46,6 +48,8 @@ class LocalAPILLM(LLMBase):
         Returns:
             Generated text or iterator of text chunks
         """
+        self.logger.debug(f"Making LLM API request: query='{query[:50]}...', streaming={streaming}")
+        
         # Generate unique identifier
         trace_id = str(uuid.uuid4())
         
@@ -59,38 +63,54 @@ class LocalAPILLM(LLMBase):
             "streaming": streaming
         }
         
-        if streaming:
-            # For streaming, we need to handle the response differently
-            response = requests.post(self.api_url, headers=self.headers, data=json.dumps(payload), stream=True)
-            response.raise_for_status()
-            
-            # Return an iterator of text chunks
-            def text_chunk_iterator():
-                for line in response.iter_lines():
-                    if line:
-                        decoded_line = line.decode('utf-8')
-                        try:
-                            result = json.loads(decoded_line)
-                            yield result["answer"]
-                        except json.JSONDecodeError:
-                            # If we can't parse the line as JSON, skip it
-                            continue
-            
-            return text_chunk_iterator()
-        else:
-            # For non-streaming, return the complete response
-            response = requests.post(self.api_url, headers=self.headers, data=json.dumps(payload))
-            response.raise_for_status()
-            
-            # Parse the response
-            try:
-                result = json.loads(response.json())
-            except:
-                result = json.loads(response.content)
-            
-            # Extract the answer
-            answer = result["answer"][0] if isinstance(result["answer"], list) else result["answer"]
-            return answer
+        try:
+            if streaming:
+                # For streaming, we need to handle the response differently
+                response = requests.post(self.api_url, headers=self.headers, data=json.dumps(payload), stream=True)
+                response.raise_for_status()
+                
+                self.logger.debug("LLM streaming response initiated")
+                
+                # Return an iterator of text chunks
+                def text_chunk_iterator():
+                    chunk_count = 0
+                    for line in response.iter_lines():
+                        if line:
+                            decoded_line = line.decode('utf-8')
+                            try:
+                                result = json.loads(decoded_line)
+                                chunk = result["answer"]
+                                chunk_count += 1
+                                self.logger.debug(f"Received streaming chunk {chunk_count}: {len(chunk)} chars")
+                                yield chunk
+                            except json.JSONDecodeError:
+                                # If we can't parse the line as JSON, skip it
+                                continue
+                    self.logger.debug(f"Streaming completed: {chunk_count} chunks received")
+                
+                return text_chunk_iterator()
+            else:
+                # For non-streaming, return the complete response
+                response = requests.post(self.api_url, headers=self.headers, data=json.dumps(payload))
+                response.raise_for_status()
+                
+                # Parse the response
+                try:
+                    result = json.loads(response.json())
+                except:
+                    result = json.loads(response.content)
+                
+                # Extract the answer
+                answer = result["answer"][0] if isinstance(result["answer"], list) else result["answer"]
+                self.logger.debug(f"LLM response received: {len(str(answer))} characters")
+                return answer
+                
+        except requests.exceptions.RequestException as e:
+            self.logger.error(f"LLM API request failed: {str(e)}")
+            raise
+        except (KeyError, json.JSONDecodeError) as e:
+            self.logger.error(f"Failed to parse LLM API response: {str(e)}")
+            raise
     
     def generate(self, prompt: str, **kwargs) -> Union[str, Iterator[str]]:
         """
@@ -104,4 +124,14 @@ class LocalAPILLM(LLMBase):
         Returns:
             Generated text or iterator of text chunks
         """
-        return self._make_api_request(prompt, **kwargs)
+        streaming = kwargs.get('streaming', False)
+        self.logger.debug(f"Starting text generation: prompt='{prompt[:50]}...', streaming={streaming}")
+        
+        result = self._make_api_request(prompt, **kwargs)
+        
+        if streaming:
+            self.logger.debug("Returning streaming iterator")
+        else:
+            self.logger.debug(f"Text generation completed: {len(str(result))} characters generated")
+        
+        return result

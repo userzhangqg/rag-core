@@ -1,4 +1,6 @@
 
+from utils.logger import get_module_logger
+
 class BaseParser:
     def __init__(self):
-        pass
+        self.logger = get_module_logger("parser")

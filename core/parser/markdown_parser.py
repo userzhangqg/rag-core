@@ -21,28 +21,45 @@ class MarkdownParser(BaseParser):
         Returns:
             List[Document]: 解析后的文档列表
         """
+        self.logger.debug(f"Starting markdown parsing with source_type: {source_type}")
+        
         if source_type == "file":
-            # 从文件路径读取
+            self.logger.debug(f"Parsing markdown from file: {source}")
             documents = self._parse_from_file(source)
         elif source_type == "content":
-            # 从内容字符串读取
+            self.logger.debug(f"Parsing markdown from content string (length: {len(source)} chars)")
             documents = self._parse_from_content(source)
         elif source_type == "bytes":
-            # 从字节流读取
+            self.logger.debug(f"Parsing markdown from bytes (size: {len(source)} bytes)")
             documents = self._parse_from_bytes(source)
         else:
-            raise ValueError("source_type must be 'file', 'content' or 'bytes'")
+            error_msg = "source_type must be 'file', 'content' or 'bytes'"
+            self.logger.error(error_msg)
+            raise ValueError(error_msg)
+        
+        self.logger.info(f"Successfully parsed markdown into {len(documents)} documents")
+        for i, doc in enumerate(documents):
+            self.logger.debug(f"Document {i+1}: content length={len(doc.page_content)}, metadata={list(doc.metadata.keys())}")
             
         return documents
 
     def _parse_from_file(self, filepath: str) -> List[Document]:
         """从文件路径解析markdown"""
-        loader = UnstructuredMarkdownLoader(filepath, mode="elements")
-        documents = loader.load()
-        return self._post_process_documents(documents)
+        self.logger.debug(f"Loading markdown file: {filepath}")
+        try:
+            loader = UnstructuredMarkdownLoader(filepath, mode="elements")
+            documents = loader.load()
+            self.logger.debug(f"Loaded {len(documents)} documents from file")
+            processed_docs = self._post_process_documents(documents)
+            self.logger.debug(f"Post-processed into {len(processed_docs)} documents")
+            return processed_docs
+        except Exception as e:
+            self.logger.error(f"Failed to parse markdown file {filepath}: {str(e)}")
+            raise
 
     def _parse_from_content(self, content: str) -> List[Document]:
         """从内容字符串解析markdown"""
+        self.logger.debug("Creating temporary file for content parsing")
         # 创建临时文件来使用UnstructuredMarkdownLoader
         import tempfile
         import os
@@ -50,35 +67,59 @@ class MarkdownParser(BaseParser):
         with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False, encoding='utf-8') as tmp_file:
             tmp_file.write(content)
             tmp_file_path = tmp_file.name
+            self.logger.debug(f"Temporary file created: {tmp_file_path}")
             
         try:
             loader = UnstructuredMarkdownLoader(tmp_file_path, mode="elements")
             documents = loader.load()
-            return self._post_process_documents(documents)
+            self.logger.debug(f"Loaded {len(documents)} documents from temporary file")
+            processed_docs = self._post_process_documents(documents)
+            self.logger.debug(f"Post-processed into {len(processed_docs)} documents")
+            return processed_docs
+        except Exception as e:
+            self.logger.error(f"Failed to parse markdown content: {str(e)}")
+            raise
         finally:
             os.unlink(tmp_file_path)
+            self.logger.debug("Temporary file cleaned up")
 
     def _parse_from_bytes(self, content: bytes) -> List[Document]:
         """从字节流解析markdown"""
+        self.logger.debug(f"Detecting encoding for {len(content)} bytes")
         # 检测编码
         import chardet
         detected = chardet.detect(content)
         encoding = detected['encoding']
+        self.logger.debug(f"Detected encoding: {encoding}")
         
         # 解码为字符串
-        text_content = content.decode(encoding)
-        return self._parse_from_content(text_content)
+        try:
+            text_content = content.decode(encoding)
+            self.logger.debug(f"Successfully decoded {len(text_content)} characters")
+            return self._parse_from_content(text_content)
+        except Exception as e:
+            self.logger.error(f"Failed to decode bytes with encoding {encoding}: {str(e)}")
+            raise
 
     def _post_process_documents(self, documents: List[Document]) -> List[Document]:
         """对解析后的文档进行后处理"""
+        self.logger.debug(f"Starting post-processing of {len(documents)} documents")
+        self.logger.debug(f"Remove hyperlinks: {self._remove_hyperlinks}, Remove images: {self._remove_images}")
+        
+        original_count = len(documents)
+        
         if self._remove_hyperlinks:
             documents = [Document(page_content=self._remove_links(doc.page_content), metadata=doc.metadata) 
                         for doc in documents]
+            self.logger.debug("Removed hyperlinks from documents")
         
         if self._remove_images:
             documents = [Document(page_content=self._remove_imgs(doc.page_content), metadata=doc.metadata) 
                         for doc in documents]
-                        
+            self.logger.debug("Removed images from documents")
+        
+        final_count = len(documents)
+        self.logger.debug(f"Post-processing complete: {original_count} -> {final_count} documents")
         return documents
 
     def _remove_links(self, content: str) -> str:
@@ -106,6 +147,10 @@ class MarkdownParser(BaseParser):
         Returns:
             List[Document]: 按章节组织的文档列表，每个文档包含章节标题、内容和层级信息
         """
+        self.logger.debug("Starting section-based markdown parsing")
+        content_length = len(content)
+        self.logger.debug(f"Content length: {content_length} characters")
+        
         lines = content.split('\n')
         sections = []
         current_section = None
@@ -114,8 +159,12 @@ class MarkdownParser(BaseParser):
         # 用于跟踪标题层级的栈
         header_stack = []  # 存储 (level, title) 元组
         
+        # 检查是否存在标题
+        has_headers = bool(re.search(r'^#{1,6}\s+.*', content, flags=re.MULTILINE))
+        self.logger.debug(f"Document contains headers: {has_headers}")
+        
         # 如果文档存在标题，则进行章节解析
-        if re.search(r'^#{1,6}\s+.*', content, flags=re.MULTILINE):
+        if has_headers:
             for line_num, line in enumerate(lines):
                 # 匹配markdown标题
                 header_match = re.match(r'^(#{1,6})\s+(.+)$', line.strip())
@@ -156,6 +205,8 @@ class MarkdownParser(BaseParser):
                     level = len(header_match.group(1))
                     title = header_match.group(2).strip()
                     
+                    self.logger.debug(f"Found header: level={level}, title='{title}'")
+                    
                     # 更新标题栈：移除所有层级大于等于当前层级的标题
                     while header_stack and header_stack[-1][0] >= level:
                         header_stack.pop()
@@ -175,13 +226,6 @@ class MarkdownParser(BaseParser):
                         current_content.append(line)
                     elif line.strip():  
                         # 如果没有标题，创建默认章节
-                        # header_stack = [(0, 'Introduction')]
-                        # current_section = {
-                        #     'title': 'Introduction',
-                        #     'level': 0,
-                        #     'line_num': line_num + 1
-                        # }
-                        # current_content = [line]
                         doc = Document(
                             page_content=line.strip(),
                             metadata={
@@ -198,11 +242,30 @@ class MarkdownParser(BaseParser):
                             }
                         )
                         sections.append(doc)
-                
+                        self.logger.debug("Added default Introduction section for content without headers")
+        else:
+            self.logger.debug("No headers found, treating entire content as single section")
+            # 如果没有标题，将整个内容作为一个章节
+            if content.strip():
+                doc = Document(
+                    page_content=content.strip(),
+                    metadata={
+                        'title': 'Full Document',
+                        'level': 0,
+                        'header_line': 0,
+                        'type': 'section',
+                        'source': 'markdown_section',
+                        'full_title_path': 'Full Document',
+                        'parent_title': None,
+                        'parent_level': None,
+                        'title_hierarchy': ['Full Document'],
+                        'level_hierarchy': [0]
+                    }
+                )
+                sections.append(doc)
         
         # 处理最后一个章节
         if current_section is not None and current_content:
-            # 构建完整标题路径
             full_title_path = ' > '.join([h[1] for h in header_stack])
             if full_title_path:
                 content_text = f"{full_title_path}\n\n" + '\n'.join(current_content).strip()
@@ -210,7 +273,6 @@ class MarkdownParser(BaseParser):
                 content_text = '\n'.join(current_content).strip()
                 
             if content_text:
-                # 获取父标题信息
                 parent_title = header_stack[-2][1] if len(header_stack) >= 2 else None
                 parent_level = header_stack[-2][0] if len(header_stack) >= 2 else None
                 
@@ -231,27 +293,19 @@ class MarkdownParser(BaseParser):
                 )
                 sections.append(doc)
         
-        # 如果没有找到任何标题，将整个内容作为一个章节
-        if not sections and content.strip():
-            doc = Document(
-                page_content=content.strip(),
-                metadata={
-                    'title': 'Full Document',
-                    'level': 0,
-                    'header_line': 0,
-                    'type': 'section',
-                    'source': 'markdown_section',
-                    'full_title_path': 'Full Document',
-                    'parent_title': None,
-                    'parent_level': None,
-                    'title_hierarchy': ['Full Document'],
-                    'level_hierarchy': [0]
-                }
-            )
-            sections.append(doc)
+        self.logger.info(f"Section-based parsing complete: {len(sections)} sections extracted")
         
-        # print(sections)
+        # 记录每个章节的详细信息
+        for i, section in enumerate(sections):
+            metadata = section.metadata
+            self.logger.debug(
+                f"Section {i+1}: title='{metadata['title']}', "
+                f"level={metadata['level']}, content_length={len(section.page_content)}, "
+                f"title_path='{metadata['full_title_path']}'"
+            )
+        
         return sections
+
 
     def parse_with_sections(self, source: Union[str, bytes], source_type: str = "file") -> List[Document]:
         """

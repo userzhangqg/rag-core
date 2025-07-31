@@ -22,10 +22,12 @@ class LocalAPIReranker(RerankerBase):
         Args:
             api_url: URL of the local reranking API
         """
+        super().__init__()
         self.api_url = api_url
         self.headers = {
             "Content-Type": "application/json"
         }
+        self.logger.info(f"LocalAPIReranker initialized with API URL: {api_url}")
     
     def _make_api_request(self, query: str, documents: List[str]) -> List[str]:
         """
@@ -38,6 +40,8 @@ class LocalAPIReranker(RerankerBase):
         Returns:
             Reranked documents
         """
+        self.logger.debug(f"Making reranking API request: query='{query[:50]}...', documents={len(documents)}")
+        
         # Generate unique identifiers
         unique_uuid = str(uuid.uuid4())
         trace_id = f"trace-{unique_uuid}"
@@ -50,18 +54,27 @@ class LocalAPIReranker(RerankerBase):
             "chunk_list": documents
         }
         
-        response = requests.post(self.api_url, headers=self.headers, data=json.dumps(payload))
-        response.raise_for_status()
-        
-        # Parse the response
         try:
-            result = json.loads(response.json())
-        except:
-            result = json.loads(response.content)
-        
-        # Extract reranked documents
-        reranked_documents = result["rerank_datas"]
-        return reranked_documents
+            response = requests.post(self.api_url, headers=self.headers, data=json.dumps(payload))
+            response.raise_for_status()
+            
+            # Parse the response
+            try:
+                result = json.loads(response.json())
+            except:
+                result = json.loads(response.content)
+            
+            # Extract reranked documents
+            reranked_documents = result["rerank_datas"]
+            self.logger.debug(f"Successfully reranked {len(reranked_documents)} documents")
+            return reranked_documents
+            
+        except requests.exceptions.RequestException as e:
+            self.logger.error(f"Reranking API request failed: {str(e)}")
+            raise
+        except (KeyError, json.JSONDecodeError) as e:
+            self.logger.error(f"Failed to parse reranking API response: {str(e)}")
+            raise
     
     def rerank(self, query: str, documents: List[str], **kwargs) -> List[str]:
         """
@@ -74,4 +87,9 @@ class LocalAPIReranker(RerankerBase):
         Returns:
             Reranked documents
         """
-        return self._make_api_request(query, documents)
+        self.logger.debug(f"Starting reranking process: query='{query[:50]}...', documents={len(documents)}")
+        
+        reranked_documents = self._make_api_request(query, documents)
+        
+        self.logger.info(f"Reranking completed: {len(reranked_documents)} documents reranked")
+        return reranked_documents

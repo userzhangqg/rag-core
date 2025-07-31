@@ -18,7 +18,9 @@ class PromptEngine(PromptEngineBase):
         Args:
             system_prompt: Default system prompt
         """
+        super().__init__()
         self.system_prompt = system_prompt
+        self.logger.info(f"Initialized with system prompt: {system_prompt[:50]}...")
     
     def build_prompt(self, query: str, contexts: list, **kwargs) -> str:
         """
@@ -32,11 +34,16 @@ class PromptEngine(PromptEngineBase):
         Returns:
             Formatted prompt string
         """
+        self.logger.debug(f"Building prompt for query: '{query[:50]}...'")
+        self.logger.debug(f"Number of contexts: {len(contexts)}")
+        
         # Get system prompt from kwargs or use default
         system_prompt = kwargs.get('system_prompt', self.system_prompt)
+        self.logger.debug(f"Using system prompt: {system_prompt[:50]}...")
         
         # Build context string
         context_str = "\n".join([f"{i+1}. {context}" for i, context in enumerate(contexts)])
+        self.logger.debug(f"Generated context string with {len(contexts)} items")
         
         # Format the prompt
         prompt = f"""{system_prompt}
@@ -47,5 +54,8 @@ Context information:
 Question: {query}
 
 Please provide a concise and accurate answer based on the context information above."""
+        
+        prompt_length = len(prompt)
+        self.logger.debug(f"Generated prompt with {prompt_length} characters")
         
         return prompt

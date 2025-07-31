@@ -5,10 +5,9 @@ warnings.filterwarnings("ignore", category=UserWarning, module="google.protobuf.
 
 from typing import List, Dict, Any, Optional, Union
 from pathlib import Path
-import logging
 from dataclasses import dataclass
 
-from conf.config import Config
+from conf.config import RAGConfig
 
 from langchain_core.documents import Document as LangChainDocument
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -21,6 +20,7 @@ from core.embedding.base import EmbeddingBase
 from core.embedding.local_api_embedding import LocalAPIEmbedding
 from core.embedding.sijiblob_embedding import SiliconFlowEmbedding
 from conf.config import RAGConfig
+from utils.logger import get_module_logger
     
 
 class DocumentProcessingPipeline:
@@ -39,14 +39,18 @@ class DocumentProcessingPipeline:
             config: RAG配置参数
         """
         self.config = config or RAGConfig.from_config_file()
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_module_logger("DocumentProcessingPipeline")
+        
+        self.logger.info("Initializing DocumentProcessingPipeline...")
         
         # 初始化组件
+        self.logger.debug("Initializing MarkdownParser...")
         self.parser = MarkdownParser(
             remove_hyperlinks=self.config.remove_hyperlinks,
             remove_images=self.config.remove_images
         )
         
+        self.logger.debug("Initializing RecursiveCharTextChunk...")
         self.chunker = RecursiveCharTextChunk(
             chunk_size=self.config.chunk_size,
             chunk_overlap=self.config.chunk_overlap,
@@ -56,13 +60,16 @@ class DocumentProcessingPipeline:
         )
         
         # 初始化向量化组件
+        self.logger.debug(f"Initializing embedding provider: {self.config.embedding_provider}")
         if self.config.embedding_provider == "siliconflow":
             api_key = self.config.embedding_api_key or "your_api_key_here"
             model_name = self.config.embedding_model_name or "BAAI/bge-large-zh-v1.5"
             self.embedding = SiliconFlowEmbedding(api_key=api_key, model_name=model_name)
+            self.logger.info(f"Using SiliconFlow embedding: {model_name}")
         elif self.config.embedding_provider == "local_api":
             api_url = getattr(self.config, 'embedding_api_url', None)
             self.embedding = LocalAPIEmbedding(api_url=api_url)
+            self.logger.info("Using local API embedding")
         else:
             raise ValueError(f"Unsupport Embedding Provider: {self.config.embedding_provider}")
         
@@ -70,10 +77,12 @@ class DocumentProcessingPipeline:
         vector_db_url = self.config.vector_db_url
         if vector_db_url is None:
             # 从配置文件中读取默认URL
-            from conf.config import Config
-            vector_db_url = Config.VECTOR_DB_URL
+            vector_db_url = RAGConfig.from_config_file().vector_db_url
         
+        self.logger.debug(f"Initializing WeaviateVector with URL: {vector_db_url}")
         self.vector = WeaviateVector(embedding_model=self.embedding, weaviate_url=vector_db_url)
+        
+        self.logger.info("DocumentProcessingPipeline initialized successfully")
     
     def __del__(self):
         """Destructor to close the Weaviate client connection."""
@@ -254,6 +263,7 @@ class DocumentProcessingPipeline:
                 raise FileNotFoundError(f"目录不存在: {directory}")
             
             self.logger.info(f"Starting to process directory: {directory}")
+            self.logger.debug(f"Processing parameters - file_pattern: {file_pattern}, recursive: {recursive}")
             
             # 查找文件
             if recursive:
@@ -261,21 +271,30 @@ class DocumentProcessingPipeline:
             else:
                 files = list(directory.glob(file_pattern))
             
+            self.logger.info(f"Found {len(files)} files matching pattern: {file_pattern}")
+            
             if not files:
                 self.logger.warning(f"No matching files found: {file_pattern}")
                 return {}
             
             results = {}
-            for file_path in files:
+            successful_files = 0
+            failed_files = 0
+            
+            for idx, file_path in enumerate(files, 1):
                 try:
+                    self.logger.debug(f"Processing file {idx}/{len(files)}: {file_path}")
                     chunks = self.process_file(file_path, custom_metadata)
                     results[str(file_path)] = chunks
+                    successful_files += 1
+                    self.logger.debug(f"Successfully processed {file_path} -> {len(chunks)} chunks")
                 except Exception as e:
+                    failed_files += 1
                     self.logger.error(f"Failed to process file {file_path}: {str(e)}")
                     continue
             
             total_chunks = sum(len(chunks) for chunks in results.values())
-            self.logger.info(f"Directory processing completed: {len(files)} files -> {total_chunks} chunks")
+            self.logger.info(f"Directory processing completed: {len(files)} files processed, {successful_files} successful, {failed_files} failed -> {total_chunks} total chunks")
             
             return results
             

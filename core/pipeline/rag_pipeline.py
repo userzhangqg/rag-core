@@ -7,9 +7,9 @@ RAG Pipeline Module for RAG Core System
 
 from typing import List, Dict, Any, Optional, Union
 from pathlib import Path
-import logging
 
 from core.pipeline.preprocessing_pipeline import DocumentProcessingPipeline as PreprocessingPipeline, RAGConfig
+from utils.logger import get_module_logger
 from core.retrieval.vector_retriever import VectorRetriever
 from core.llm.factory import LLMFactory
 from core.reranker.factory import RerankerFactory
@@ -31,18 +31,24 @@ class RAGPipeline:
             config: RAG配置参数
         """
         self.config = config or RAGConfig.from_config_file()
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_module_logger("RAGPipeline")
+        
+        self.logger.info("Starting RAG pipeline initialization...")
         
         # 初始化预处理管道
+        self.logger.debug("Initializing preprocessing pipeline...")
         self.preprocessing_pipeline = PreprocessingPipeline(self.config)
         
         # 初始化向量存储
+        self.logger.debug("Initializing vector store...")
         self.vector_store = self.preprocessing_pipeline.vector
         
         # 初始化检索器
+        self.logger.debug("Initializing vector retriever...")
         self.retriever = VectorRetriever(self.vector_store)
         
         # 初始化LLM
+        self.logger.debug(f"Initializing LLM: {self.config.llm_provider}")
         self.llm = LLMFactory.create_llm(
             provider=self.config.llm_provider,
             api_key=self.config.llm_api_key,
@@ -51,13 +57,17 @@ class RAGPipeline:
         )
         
         # 初始化Reranker
+        self.logger.debug(f"Initializing reranker: {self.config.rerank_provider}")
         self.reranker = RerankerFactory.create_reranker(
             provider=self.config.rerank_provider,
             api_url=self.config.rerank_api_url
         )
         
         # 初始化Prompt引擎
+        self.logger.debug("Initializing prompt engine...")
         self.prompt_engine = PromptEngine()
+        
+        self.logger.info("RAG pipeline initialization completed successfully")
     
     def process_file(
         self, 
@@ -129,27 +139,39 @@ class RAGPipeline:
         Returns:
             生成的回答文本
         """
+        self.logger.info(f"Starting RAG query: '{query_text[:50]}...'")
+        
         # 使用配置文件中的默认值
         if top_k is None:
             top_k = self.config.retrieve_top_k
         
+        self.logger.debug(f"Query parameters - top_k: {top_k}, score_threshold: {score_threshold}, use_rerank: {use_rerank}")
+        
         # 检索相关文档
+        self.logger.debug("Searching for relevant documents...")
         retrieved_docs = self.retriever.search(query_text, top_k, score_threshold)
+        self.logger.info(f"Retrieved {len(retrieved_docs)} documents")
         
         # 提取文档文本
         contexts = [doc['text'] for doc in retrieved_docs]
+        self.logger.debug(f"Extracted {len(contexts)} contexts from retrieved documents")
         
         # 如果启用rerank，则对检索结果进行重排序
         if use_rerank and len(contexts) > 1:
+            self.logger.debug("Applying reranker to contexts...")
             contexts = self.reranker.rerank(query_text, contexts)
-            # 限制rerank后的chunk数量
             contexts = contexts[:self.config.rerank_top_n]
+            self.logger.info(f"Reranked contexts, final count: {len(contexts)}")
         
         # 构建Prompt
+        self.logger.debug("Building prompt for LLM...")
         prompt = self.prompt_engine.build_prompt(query_text, contexts)
+        self.logger.debug(f"Generated prompt with {len(prompt)} characters")
         
         # 生成回答
+        self.logger.debug("Generating response from LLM...")
         response = self.llm.generate(prompt)
+        self.logger.info(f"Generated response with {len(response)} characters")
         
         return response
     

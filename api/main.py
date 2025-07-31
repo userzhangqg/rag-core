@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # Import configuration
-from conf.config import Config
+from conf.config import RAGConfig
 
 # Create the FastAPI app
 app = FastAPI(
@@ -46,9 +46,11 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
+    # Get default configuration
+    config = RAGConfig.from_config_file()
     uvicorn.run(
         "main:app",
-        host=Config.API_HOST,
-        port=Config.API_PORT,
+        host=config.api_host,
+        port=config.api_port,
         reload=True
     )

@@ -98,6 +98,22 @@ vector_db:
   url: "http://localhost:8080"
 ```
 
+#### 日志配置
+
+系统使用Loguru作为日志库，支持同时输出到控制台和文件。您可以在配置文件中指定日志级别、格式和文件路径：
+
+```yaml
+logging:
+  level: INFO
+  console_level: INFO
+  file_level: DEBUG
+  file: logs/rag_core.log
+  max_file_size: 10485760  # 10MB
+  backup_count: 5
+  format: "{time:YYYY-MM-DD HH:mm:ss} [{level}] [{name}] {message}"
+  date_format: "%Y-%m-%d %H:%M:%S"
+```
+
 ## 开发指南
 
 请参考 [docs/dev_plan.md](docs/dev_plan.md) 了解详细的开发计划。

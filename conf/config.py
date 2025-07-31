@@ -22,16 +22,26 @@ class LoggingConfig:
     file: str = "logs/rag_core.log"
     max_file_size: int = 10485760  # 10MB
     backup_count: int = 5
-    format: str = "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"
+    format: str = "{time:YYYY-MM-DD HH:mm:ss} [{level}] {message}"
     date_format: str = "%Y-%m-%d %H:%M:%S"
-
-
-@dataclass
-class DebugConfig:
-    """
-    调试模式配置
-    """
-    enabled: bool = False
+    module_levels: Dict[str, str] = field(default_factory=lambda: {
+        # 核心模块
+        "parser": "INFO",
+        "chunking": "INFO",
+        "embedding": "INFO",
+        "vector": "INFO", 
+        "retrieval": "INFO",
+        "reranker": "INFO",
+        "PromptEngine": "INFO",
+        "llm": "INFO",
+        
+        # Pipeline模块
+        "RAGPipeline": "INFO",
+        "DocumentProcessingPipeline": "INFO",
+        
+        # 默认级别
+        "default": "DEBUG"
+    })
 
 
 @dataclass
@@ -60,6 +70,7 @@ class RAGConfig:
     
     # 向量数据库参数
     vector_db_url: Optional[str] = None
+    vector_db_grpc_port: int = 50051
     
     # LLM参数
     llm_provider: str = "local_api"
@@ -77,7 +88,22 @@ class RAGConfig:
     
     # 日志配置
     logging_config: LoggingConfig = field(default_factory=LoggingConfig)
-    debug_config: DebugConfig = field(default_factory=DebugConfig)
+    # debug_config: DebugConfig = field(default_factory=DebugConfig)
+    
+    # 数据库配置
+    database_url: str = "postgresql://user:password@localhost/rag_core"
+    
+    # Redis配置
+    redis_url: str = "redis://localhost:6379/0"
+    
+    # MinIO配置
+    minio_endpoint: str = "localhost:9000"
+    minio_access_key: str = "minioadmin"
+    minio_secret_key: str = "minioadmin"
+    
+    # API配置
+    api_host: str = "0.0.0.0"
+    api_port: int = 8000
     
     # 其他参数
     custom_metadata: Dict[str, Any] = field(default_factory=dict)
@@ -107,7 +133,27 @@ class RAGConfig:
         
         # 从配置文件中读取日志配置
         logging_config = _config.get('logging', {})
-        debug_config = _config.get('debug', {})
+        
+        # 从配置文件中读取数据库配置
+        database_config = _config.get('database', {})
+        
+        # 从配置文件中读取向量数据库配置
+        vector_db_config = _config.get('vector_db', {})
+        
+        # 从配置文件中读取LLM配置
+        llm_config = _config.get('llm', {})
+        
+        # 从配置文件中读取Redis配置
+        redis_config = _config.get('redis', {})
+        
+        # 从配置文件中读取MinIO配置
+        minio_config = _config.get('minio', {})
+        
+        # 从配置文件中读取API配置
+        api_config = _config.get('api', {})
+        
+        # 从配置文件中读取Embedding配置
+        embedding_config = _config.get('embedding', {})
         
         # 创建RAGConfig实例
         return cls(
@@ -120,15 +166,16 @@ class RAGConfig:
             remove_images=rag_config.get('remove_images', False),
             enable_metadata=rag_config.get('enable_metadata', True),
             batch_size=rag_config.get('batch_size', 32),
-            embedding_provider=_config.get('embedding', {}).get('provider', "local_api"),
-            embedding_api_key=_config.get('embedding', {}).get('siliconflow', {}).get('api_key'),
-            embedding_model_name=_config.get('embedding', {}).get('siliconflow', {}).get('model_name'),
-            embedding_api_url=_config.get('embedding', {}).get('local_api', {}).get('url') if _config.get('embedding', {}).get('provider') == "local_api" else _config.get('embedding', {}).get('siliconflow', {}).get('api_url'),
-            vector_db_url=_config.get('vector_db', {}).get('url'),
-            llm_provider=_config.get('llm', {}).get('provider', "local_api"),
-            llm_api_key=_config.get('llm', {}).get('api_key'),
-            llm_model_name=_config.get('llm', {}).get('model'),
-            llm_api_url=_config.get('llm', {}).get('local_api', {}).get('url'),
+            embedding_provider=embedding_config.get('provider', "local_api"),
+            embedding_api_key=embedding_config.get('siliconflow', {}).get('api_key'),
+            embedding_model_name=embedding_config.get('siliconflow', {}).get('model_name'),
+            embedding_api_url=embedding_config.get('local_api', {}).get('url') if embedding_config.get('provider') == "local_api" else embedding_config.get('siliconflow', {}).get('api_url'),
+            vector_db_url=vector_db_config.get('url'),
+            vector_db_grpc_port=vector_db_config.get('grpc_port', 50051),
+            llm_provider=llm_config.get('provider', "local_api"),
+            llm_api_key=llm_config.get('api_key'),
+            llm_model_name=llm_config.get('model'),
+            llm_api_url=llm_config.get('local_api', {}).get('url'),
             rerank_provider=_config.get('rerank', {}).get('provider', "local_api"),
             rerank_api_url=_config.get('rerank', {}).get('local_api', {}).get('url'),
             retrieve_top_k=rag_config.get('retrieve_top_k', 50),
@@ -141,11 +188,16 @@ class RAGConfig:
                 max_file_size=logging_config.get('max_file_size', 10485760),
                 backup_count=logging_config.get('backup_count', 5),
                 format=logging_config.get('format', '[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s'),
-                date_format=logging_config.get('date_format', '%Y-%m-%d %H:%M:%S')
+                date_format=logging_config.get('date_format', '%Y-%m-%d %H:%M:%S'),
+                module_levels=logging_config.get('module_levels', {})
             ),
-            debug_config=DebugConfig(
-                enabled=debug_config.get('enabled', False)
-            )
+            database_url=database_config.get('url', "postgresql://user:password@localhost/rag_core"),
+            redis_url=redis_config.get('url', "redis://localhost:6379/0"),
+            minio_endpoint=minio_config.get('endpoint', "localhost:9000"),
+            minio_access_key=minio_config.get('access_key', "minioadmin"),
+            minio_secret_key=minio_config.get('secret_key', "minioadmin"),
+            api_host=api_config.get('host', "0.0.0.0"),
+            api_port=api_config.get('port', 8000),
         )
     
     def update(self, **kwargs) -> None:
@@ -158,48 +210,3 @@ class RAGConfig:
         for key, value in kwargs.items():
             if hasattr(self, key):
                 setattr(self, key, value)
-
-
-class Config:
-    """Configuration class for the RAG Core system."""
-    
-    # Default configuration file path
-    CONFIG_FILE = os.environ.get('RAG_CORE_CONFIG', 'conf/config.yaml')
-    
-    # Load configuration from YAML file
-    _config = {}
-    if os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, 'r') as f:
-            _config = yaml.safe_load(f) or {}
-    
-    # Database configuration
-    DATABASE_URL = _config.get('database', {}).get('url', "postgresql://user:password@localhost/rag_core")
-    
-    # Vector database configuration
-    VECTOR_DB_URL = _config.get('vector_db', {}).get('url', "http://localhost:8080")
-    VECTOR_DB_GRPC_PORT = _config.get('vector_db', {}).get('grpc_port', 50051)
-    
-    # LLM configuration
-    LLM_API_KEY = _config.get('llm', {}).get('api_key', "your-api-key-here")
-    LLM_MODEL = _config.get('llm', {}).get('model', "gpt-3.5-turbo")
-    
-    # Redis configuration
-    REDIS_URL = _config.get('redis', {}).get('url', "redis://localhost:6379/0")
-    
-    # MinIO configuration
-    MINIO_ENDPOINT = _config.get('minio', {}).get('endpoint', "localhost:9000")
-    MINIO_ACCESS_KEY = _config.get('minio', {}).get('access_key', "minioadmin")
-    MINIO_SECRET_KEY = _config.get('minio', {}).get('secret_key', "minioadmin")
-    
-    # API configuration
-    API_HOST = _config.get('api', {}).get('host', "0.0.0.0")
-    API_PORT = _config.get('api', {}).get('port', 8000)
-    
-    # Embedding configuration
-    EMBEDDING_PROVIDER = _config.get('embedding', {}).get('provider', "local_api")
-    EMBEDDING_LOCAL_API_URL = _config.get('embedding', {}).get('local_api', {}).get('url', "http://172.16.89.10:10669/scbllm/embedding-infer/embedding")
-    EMBEDDING_SILICONFLOW_API_KEY = _config.get('embedding', {}).get('siliconflow', {}).get('api_key', "your-siliconflow-api-key-here")
-    EMBEDDING_SILICONFLOW_MODEL_NAME = _config.get('embedding', {}).get('siliconflow', {}).get('model_name', "BAAI/bge-large-zh-v1.5")
-    EMBEDDING_SILICONFLOW_API_URL = _config.get('embedding', {}).get('siliconflow', {}).get('api_url', "https://api.siliconflow.cn/v1/embeddings")
-
-    EMBEDDING_API_URL = EMBEDDING_LOCAL_API_URL if EMBEDDING_PROVIDER == "local_api" else EMBEDDING_SILICONFLOW_API_URL

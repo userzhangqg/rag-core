@@ -67,6 +67,8 @@ class RecursiveCharTextChunk(BaseChunker):
             add_start_index=add_start_index,
             strip_whitespace=strip_whitespace
         )
+        
+        self.logger.info(f"RecursiveCharTextChunk initialized with chunk_size={chunk_size}, chunk_overlap={chunk_overlap}")
     
     def get_chunks(
         self, 
@@ -85,11 +87,14 @@ class RecursiveCharTextChunk(BaseChunker):
         Returns:
             List[dict]: 分块列表，每个分块包含text和metadata字段
         """
+        self.logger.info(f"Starting chunking process for {len(paragraphs) if isinstance(paragraphs, list) else 1} paragraphs")
+        
         if chunk_size is not None:
             # 临时修改chunk_size
             original_chunk_size = self.chunk_size
             self.chunk_size = chunk_size
             self._langchain_splitter.chunk_size = chunk_size
+            self.logger.debug(f"Temporarily using chunk_size={chunk_size}")
         
         try:
             if isinstance(paragraphs, str):
@@ -99,10 +104,15 @@ class RecursiveCharTextChunk(BaseChunker):
             
             for idx, text in enumerate(paragraphs):
                 if not text.strip():
+                    self.logger.debug(f"Skipping empty paragraph {idx}")
                     continue
                     
+                self.logger.debug(f"Processing paragraph {idx+1}/{len(paragraphs)} (length: {len(text)})")
+                
                 # 使用langchain进行分块
                 docs = self._langchain_splitter.create_documents([text])
+                
+                self.logger.debug(f"Paragraph {idx+1} split into {len(docs)} chunks")
                 
                 for doc_idx, doc in enumerate(docs):
                     chunk_data = {
@@ -121,6 +131,7 @@ class RecursiveCharTextChunk(BaseChunker):
                     
                     all_chunks.append(chunk_data)
             
+            self.logger.info(f"Chunking completed: generated {len(all_chunks)} chunks from {len(paragraphs)} paragraphs")
             return all_chunks
             
         finally:
@@ -128,6 +139,7 @@ class RecursiveCharTextChunk(BaseChunker):
             if chunk_size is not None:
                 self.chunk_size = original_chunk_size
                 self._langchain_splitter.chunk_size = original_chunk_size
+                self.logger.debug("Restored original chunk_size")
     
     def split_documents(
         self, 

@@ -7,7 +7,7 @@ Weaviate Vector Store Module for RAG Core System
 
 from typing import List, Dict, Any, Optional, Union
 from core.embedding.base import EmbeddingBase
-from conf.config import Config
+from conf.config import RAGConfig
 import weaviate
 import weaviate.exceptions
 import logging
@@ -72,8 +72,11 @@ class WeaviateVector:
         Returns:
             WeaviateVector instance configured from config file
         """
-        weaviate_url = kwargs.pop('weaviate_url', Config.VECTOR_DB_URL)
-        grpc_port = kwargs.pop('grpc_port', Config.VECTOR_DB_GRPC_PORT)
+        # Get default configuration
+        default_config = RAGConfig.from_config_file()
+        
+        weaviate_url = kwargs.pop('weaviate_url', default_config.vector_db_url)
+        grpc_port = kwargs.pop('grpc_port', default_config.vector_db_grpc_port)
         
         return cls(
             embedding_model=embedding_model,
@@ -105,6 +108,8 @@ class WeaviateVector:
         Returns:
             List of node IDs for the stored texts
         """
+        self.logger.debug(f"Starting to store {len(texts)} texts in vector database")
+        
         # Create schema if it doesn't exist
         schema = {
             "class": self.index_name,
@@ -117,13 +122,18 @@ class WeaviateVector:
         }
         
         if not self.client.collections.exists(self.index_name):
+            self.logger.debug(f"Creating collection '{self.index_name}' in Weaviate")
             self.client.collections.create_from_dict(schema)
+        else:
+            self.logger.debug(f"Collection '{self.index_name}' already exists")
         
         # Get collection
         collection = self.client.collections.get(self.index_name)
         
         # Generate embeddings for texts
+        self.logger.debug("Generating embeddings for texts")
         embeddings = [self.embed(text) for text in texts]
+        self.logger.debug(f"Generated {len(embeddings)} embeddings")
         
         # Store texts and embeddings
         ids = []
@@ -158,9 +168,10 @@ class WeaviateVector:
         
         failed = collection.batch.failed_objects
         if failed:
+            self.logger.error(f"Failed inserts: {failed}")
             raise weaviate.exceptions.WeaviateBatchError(f"Failed inserts: {failed}")
         
-        # self.index = True  # Indicate index exists
+        self.logger.debug(f"Successfully stored {len(ids)} texts in vector database")
         return ids
     
     def search(self, query: str, top_k: int = 5, score_threshold: float = 0.0) -> List[Dict[str, Any]]:
@@ -175,14 +186,22 @@ class WeaviateVector:
         Returns:
             List of search results with text, metadata, and similarity score
         """
+        self.logger.debug(f"Starting vector search: query='{query[:50]}...', top_k={top_k}, score_threshold={score_threshold}")
+        
         if self.index is None:
+            self.logger.error("Index not initialized. Store some texts first.")
             raise ValueError("Index not initialized. Store some texts first.")
         
         # Generate embedding for query
+        self.logger.debug("Generating embedding for query")
         query_vector = self.embed(query)
+        self.logger.debug(f"Generated query vector with {len(query_vector)} dimensions")
         
         # Perform search
-        return self.search_by_vector(query_vector, top_k, score_threshold)
+        results = self.search_by_vector(query_vector, top_k, score_threshold)
+        self.logger.debug(f"Vector search completed: found {len(results)} results")
+        
+        return results
     
     def search_by_vector(self, query_vector: List[float], top_k: int = 5, score_threshold: float = 0.0) -> List[Dict[str, Any]]:
         """

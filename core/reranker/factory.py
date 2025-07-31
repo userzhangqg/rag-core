@@ -32,4 +32,4 @@ class RerankerFactory:
         if provider == "local_api":
             return LocalAPIReranker(api_url=api_url or "http://172.16.89.10:10669/scbllm/embedding-infer/reranker")
         else:
-            raise ValueError(f"不支持的Reranker提供商: {provider}")
+            raise ValueError(f"Unsupported reranker provider: {provider}")

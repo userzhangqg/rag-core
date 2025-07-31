@@ -10,6 +10,7 @@ import requests
 import uuid
 from typing import List, Union, Optional
 from core.embedding.base import EmbeddingBase
+from utils.logger import get_module_logger
 
 
 class LocalAPIEmbedding(EmbeddingBase):
@@ -22,10 +23,13 @@ class LocalAPIEmbedding(EmbeddingBase):
         Args:
             api_url: URL of the local embedding API
         """
+        super().__init__()
         self.api_url = api_url
         self.headers = {
             "Content-Type": "application/json"
         }
+        # self.logger = get_module_logger('embedding.local_api')
+        self.logger.info(f"LocalAPIEmbedding initialized with API URL: {api_url}")
     
     def _make_api_request(self, text: str) -> List[float]:
         """
@@ -37,6 +41,8 @@ class LocalAPIEmbedding(EmbeddingBase):
         Returns:
             Embedding for the text
         """
+        self.logger.debug(f"Making API request for text: {text[:50]}...")
+        
         # Generate unique identifiers
         unique_uuid = str(uuid.uuid4())
         trace_id = f"trace-{unique_uuid}"
@@ -49,18 +55,27 @@ class LocalAPIEmbedding(EmbeddingBase):
             "query": False
         }
         
-        response = requests.post(self.api_url, headers=self.headers, data=json.dumps(payload))
-        response.raise_for_status()
-        
-        # Parse the response
         try:
-            result = json.loads(response.json())
-        except:
-            result = json.loads(response.content)
-        
-        # Extract embeddings
-        embeddings_list = result["embeddings_list"]
-        return embeddings_list[0]  # Return the first (and only) embedding
+            response = requests.post(self.api_url, headers=self.headers, data=json.dumps(payload))
+            response.raise_for_status()
+            
+            # Parse the response
+            try:
+                result = json.loads(response.json())
+            except:
+                result = json.loads(response.content)
+            
+            # Extract embeddings
+            embeddings_list = result["embeddings_list"]
+            self.logger.debug(f"Successfully generated embedding with {len(embeddings_list[0])} dimensions")
+            return embeddings_list[0]  # Return the first (and only) embedding
+            
+        except requests.exceptions.RequestException as e:
+            self.logger.error(f"API request failed: {str(e)}")
+            raise
+        except (KeyError, json.JSONDecodeError) as e:
+            self.logger.error(f"Failed to parse API response: {str(e)}")
+            raise
     
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
         """
@@ -72,10 +87,13 @@ class LocalAPIEmbedding(EmbeddingBase):
         Returns:
             List of embeddings, one for each text
         """
+        self.logger.info(f"Generating embeddings for {len(texts)} documents")
         embeddings = []
-        for text in texts:
+        for i, text in enumerate(texts):
+            self.logger.debug(f"Processing document {i+1}/{len(texts)}")
             embedding = self._make_api_request(text)
             embeddings.append(embedding)
+        self.logger.info(f"Successfully generated {len(embeddings)} embeddings")
         return embeddings
     
     def embed_query(self, text: str) -> List[float]:
@@ -92,15 +110,17 @@ class LocalAPIEmbedding(EmbeddingBase):
     
     def embed_text(self, text: Union[str, List[str]]) -> Union[List[float], List[List[float]]]:
         """
-        Generate embeddings for text(s).
+        Generate embedding(s) for text(s).
         
         Args:
-            text: Text or list of texts to embed
+            text: Single text or list of texts to embed
             
         Returns:
-            Embedding(s) for the text(s)
+            Single embedding or list of embeddings
         """
         if isinstance(text, str):
+            self.logger.debug("Processing single text for embedding")
             return self.embed_query(text)
         else:
+            self.logger.debug(f"Processing list of {len(text)} texts for embedding")
             return self.embed_documents(text)
