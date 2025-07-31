@@ -1,0 +1,15 @@
+langchain
+langchain-core
+langchain-text-splitters
+langchain-community
+markdown==3.7
+unstructured
+pytest==8.3.4
+PyYAML==6.0.2
+fastapi==0.116.1
+llama-index
+llama-index-vector-stores-weaviate
+weaviate-client
+protobuf>=5.29.0
+requests
+

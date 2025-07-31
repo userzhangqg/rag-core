@@ -1,0 +1,69 @@
+# RAG Core System Configuration
+
+database:
+  url: "postgresql://user:password@localhost/rag_core"
+
+vector_db:
+  url: "http://172.28.86.42:28080"
+  grpc_port: 50051
+
+llm:
+  provider: "local_api"  # 可选: "local_api", ...
+  api_key: "your-api-key-here"
+  model: "gpt-3.5-turbo"
+  local_api:
+    url: "http://172.16.89.10:9648/scbllm/llm-2025/llm_infer"
+
+redis:
+  url: "redis://localhost:6379/0"
+
+minio:
+  endpoint: "localhost:9000"
+  access_key: "minioadmin"
+  secret_key: "minioadmin"
+
+api:
+  host: "0.0.0.0"
+  port: 8000
+
+embedding:
+  provider: "local_api"  # 可选: "local_api", "siliconflow"
+  local_api:
+    url: "http://172.16.89.10:10669/scbllm/embedding-infer/embedding"
+  siliconflow:
+    api_key: "your-siliconflow-api-key-here"
+    model_name: "BAAI/bge-large-zh-v1.5"
+    api_url: "https://api.siliconflow.cn/v1/embeddings"
+
+rerank:
+  provider: "local_api"  # 可选: "local_api"
+  local_api:
+    url: "http://172.16.89.10:10669/scbllm/embedding-infer/reranker"
+
+# Logging configuration
+logging:
+  level: INFO
+  console_level: INFO
+  file_level: DEBUG
+  file: logs/rag_core.log
+  max_file_size: 10485760  # 10MB
+  backup_count: 5
+  format: "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"
+  date_format: "%Y-%m-%d %H:%M:%S"
+
+# Debug mode configuration
+debug:
+  enabled: false  # Set to true to enable debug logging for all modules
+
+# RAG specific configuration
+rag:
+  chunk_size: 1000
+  chunk_overlap: 200
+  parse_by_chapter: true
+  parse_by_element: false
+  remove_hyperlinks: true
+  remove_images: true
+  enable_metadata: true
+  batch_size: 32
+  retrieve_top_k: 50
+  rerank_top_n: 5

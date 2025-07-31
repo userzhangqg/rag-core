@@ -1,0 +1,19 @@
+*.pyc
+*.log
+*__pycache__/
+.venv/
+.pytest_cache/
+data/
+prompt.txt
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+logs/
+*.log
+
+tmp/
