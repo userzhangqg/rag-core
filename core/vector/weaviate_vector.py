@@ -8,11 +8,11 @@ Weaviate Vector Store Module for RAG Core System
 from typing import List, Dict, Any, Optional, Union
 from core.embedding.base import EmbeddingBase
 from conf.config import RAGConfig
+from core.vector.base import VectorBase
 import weaviate
 import weaviate.exceptions
-import logging
 
-class WeaviateVector:
+class WeaviateVector(VectorBase):
     """Weaviate implementation of vector database operations."""
     
     def __init__(self, 
@@ -30,6 +30,7 @@ class WeaviateVector:
             grpc_port: gRPC port for Weaviate connection
             index_name: Name of the index in Weaviate
         """
+        super().__init__()
         self.weaviate_url = weaviate_url
         self.index_name = index_name
         
@@ -48,9 +49,6 @@ class WeaviateVector:
         client.connect()
 
         self.client = client
-        
-        # Initialize logger
-        self.logger = logging.getLogger(__name__)
         
         # Initialize index
         self.index = True
@@ -117,6 +115,7 @@ class WeaviateVector:
                 {
                     "name": "text",
                     "dataType": ["text"],
+                    "tokenization": "gse"   # 使用 GSE 支持中文
                 }
             ],
         }
@@ -246,4 +245,54 @@ class WeaviateVector:
         
         # Sort by score in descending order
         docs = sorted(docs, key=lambda x: x["score"], reverse=True)
+        return docs
+    
+    def search_by_full_text(self, query: str, top_k: int = 5, score_threshold: float = 0.0) -> List[Dict[str, Any]]:
+        """
+        Search for documents using BM25 full-text search.
+        
+        Args:
+            query: Query text for full-text search
+            top_k: Number of results to return
+            score_threshold: Minimum relevance score for results
+            
+        Returns:
+            List of search results with text, metadata, and BM25 score
+        """
+        self.logger.debug(f"Starting full-text search: query='{query[:50]}...', top_k={top_k}, score_threshold={score_threshold}")
+        
+        if self.index is None:
+            raise ValueError("Index not initialized. Store some texts first.")
+        
+        # Get collection
+        collection = self.client.collections.get(self.index_name)
+        
+        # Perform BM25 full-text search
+        result = collection.query.bm25(
+            query=query,
+            limit=top_k,
+            return_properties=["text"],
+            return_metadata=["score"]
+        )
+
+        self.logger.debug(f"BM25 search returned {len(result.objects)} results")
+        
+        # Process results
+        docs = []
+        for obj in result.objects:
+            text = obj.properties.get("text", "")
+            score = obj.metadata.score if obj.metadata else 0.0
+            
+            # Check score threshold
+            if score > score_threshold:
+                docs.append({
+                    "text": text,
+                    "metadata": obj.properties,
+                    "score": score
+                })
+        
+        # Sort by score in descending order
+        docs = sorted(docs, key=lambda x: x["score"], reverse=True)
+        
+        self.logger.debug(f"Full-text search completed: found {len(docs)} results")
         return docs

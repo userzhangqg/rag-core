@@ -10,7 +10,7 @@ from pathlib import Path
 
 from core.pipeline.preprocessing_pipeline import DocumentProcessingPipeline as PreprocessingPipeline, RAGConfig
 from utils.logger import get_module_logger
-from core.retrieval.vector_retriever import VectorRetriever
+from core.retrieval.factory import RetrievalFactory
 from core.llm.factory import LLMFactory
 from core.reranker.factory import RerankerFactory
 from core.prompt.engine import PromptEngine
@@ -44,8 +44,13 @@ class RAGPipeline:
         self.vector_store = self.preprocessing_pipeline.vector
         
         # 初始化检索器
-        self.logger.debug("Initializing vector retriever...")
-        self.retriever = VectorRetriever(self.vector_store)
+        self.logger.debug(f"Initializing retriever: {self.config.retrieval_type}")
+        self.retriever = RetrievalFactory.create_retriever(
+            retriever_type=self.config.retrieval_type,
+            vector_store=self.vector_store,
+            hybrid_config=self.config.hybrid_config
+        )
+        self.logger.info(f"Using {type(self.retriever).__name__}")
         
         # 初始化LLM
         self.logger.debug(f"Initializing LLM: {self.config.llm_provider}")
@@ -146,15 +151,17 @@ class RAGPipeline:
             top_k = self.config.retrieve_top_k
         
         self.logger.debug(f"Query parameters - top_k: {top_k}, score_threshold: {score_threshold}, use_rerank: {use_rerank}")
+
         
         # 检索相关文档
-        self.logger.debug("Searching for relevant documents...")
+        self.logger.debug(f"Searching for relevant documents using {self.config.retrieval_type} search...")
         retrieved_docs = self.retriever.search(query_text, top_k, score_threshold)
-        self.logger.info(f"Retrieved {len(retrieved_docs)} documents")
+        self.logger.info(f"Retrieved {len(retrieved_docs)} documents using {self.config.retrieval_type} search")
         
         # 提取文档文本
         contexts = [doc['text'] for doc in retrieved_docs]
         self.logger.debug(f"Extracted {len(contexts)} contexts from retrieved documents")
+        self.logger.debug(f"Top {top_k} Contexts: {contexts[:top_k]}")
         
         # 如果启用rerank，则对检索结果进行重排序
         if use_rerank and len(contexts) > 1:
@@ -162,6 +169,7 @@ class RAGPipeline:
             contexts = self.reranker.rerank(query_text, contexts)
             contexts = contexts[:self.config.rerank_top_n]
             self.logger.info(f"Reranked contexts, final count: {len(contexts)}")
+            self.logger.debug(f"Reranked contexts: {contexts}")
 
         # TODO： filter重复文本
         

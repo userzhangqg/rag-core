@@ -65,8 +65,8 @@ logging:
     
     
     # Pipeline模块
-    RAGPipeline: INFO
-    DocumentProcessingPipeline: INFO
+    RAGPipeline: DEBUG
+    DocumentProcessingPipeline: DEBUG
     
     # 其他模块
     default: DEBUG  # 默认级别
@@ -87,3 +87,9 @@ rag:
   batch_size: 32
   retrieve_top_k: 20
   rerank_top_n: 5
+  
+  # 混合检索配置
+  retrieval_type: "hybrid"  # 可选: "hybrid", "vector", "text"
+  hybrid_config:
+    vector_weight: 0.7      # 向量检索权重
+    text_weight: 0.3        # 文本检索权重

@@ -43,6 +43,22 @@ class LoggingConfig:
         "default": "DEBUG"
     })
 
+@dataclass
+class HybridRetrieverConfig:
+    """
+    Configuration class for hybrid retriever.
+    
+    Attributes:
+        vector_weight: Weight for vector retrieval scores in final hybrid score
+        text_weight: Weight for full-text retrieval scores in final hybrid score
+        enable_text_search: Whether to enable full-text search
+        enable_vector_search: Whether to enable vector search
+    """
+    vector_weight: float = 0.75
+    text_weight: float = 0.25
+    enable_text_search: bool = True
+    enable_vector_search: bool = True
+
 
 @dataclass
 class RAGConfig:
@@ -85,6 +101,10 @@ class RAGConfig:
     # 查询参数
     retrieve_top_k: int = 50
     rerank_top_n: int = 5
+    
+    # 混合检索参数
+    retrieval_type: str = "hybrid"  # "hybrid", "vector", "text"
+    hybrid_config: HybridRetrieverConfig = field(default_factory=HybridRetrieverConfig)
     
     # 日志配置
     logging_config: LoggingConfig = field(default_factory=LoggingConfig)
@@ -154,6 +174,9 @@ class RAGConfig:
         
         # 从配置文件中读取Embedding配置
         embedding_config = _config.get('embedding', {})
+
+        # 从配置文件中读取混合检索配置
+        hybrid_config = _config.get('hybrid_config', {})
         
         # 创建RAGConfig实例
         return cls(
@@ -180,6 +203,13 @@ class RAGConfig:
             rerank_api_url=_config.get('rerank', {}).get('local_api', {}).get('url'),
             retrieve_top_k=rag_config.get('retrieve_top_k', 50),
             rerank_top_n=rag_config.get('rerank_top_n', 5),
+            retrieval_type=rag_config.get('retrieval_type', "hybrid"),
+            hybrid_config=HybridRetrieverConfig(
+                vector_weight=hybrid_config.get('vector_weight', 0.75),
+                text_weight=hybrid_config.get('text_weight', 0.25),
+                enable_text_search=hybrid_config.get('enable_text_search', True),
+                enable_vector_search=hybrid_config.get('enable_vector_search', True)
+            ),
             logging_config=LoggingConfig(
                 level=logging_config.get('level', 'INFO'),
                 console_level=logging_config.get('console_level', 'INFO'),
