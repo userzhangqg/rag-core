@@ -13,4 +13,7 @@ weaviate-client
 protobuf>=5.29.0
 requests
 loguru>=0.7.0
+python-multipart
+uvicorn
+gradio>=4.0.0
 

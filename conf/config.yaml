@@ -24,7 +24,8 @@ minio:
 
 api:
   host: "0.0.0.0"
-  port: 8000
+  port: 8001
+  gradio_port: 7860
 
 embedding:
   provider: "local_api"  # 可选: "local_api", "siliconflow"

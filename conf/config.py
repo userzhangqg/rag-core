@@ -124,6 +124,8 @@ class RAGConfig:
     # API配置
     api_host: str = "0.0.0.0"
     api_port: int = 8000
+    gradio_host: str = api_host
+    gradio_port: int = 7860
     
     # 其他参数
     custom_metadata: Dict[str, Any] = field(default_factory=dict)
@@ -228,6 +230,8 @@ class RAGConfig:
             minio_secret_key=minio_config.get('secret_key', "minioadmin"),
             api_host=api_config.get('host', "0.0.0.0"),
             api_port=api_config.get('port', 8000),
+            gradio_host=api_config.get('host', "0.0.0.0"),
+            gradio_port=api_config.get('gradio_port', 7860),
         )
     
     def update(self, **kwargs) -> None:

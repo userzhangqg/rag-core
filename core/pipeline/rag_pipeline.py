@@ -161,7 +161,7 @@ class RAGPipeline:
         # 提取文档文本
         contexts = [doc['text'] for doc in retrieved_docs]
         self.logger.debug(f"Extracted {len(contexts)} contexts from retrieved documents")
-        self.logger.debug(f"Top {top_k} Contexts: {contexts[:top_k]}")
+        self.logger.debug(f"Top {top_k} Contexts: {retrieved_docs[:top_k]}")
         
         # 如果启用rerank，则对检索结果进行重排序
         if use_rerank and len(contexts) > 1:
@@ -170,8 +170,11 @@ class RAGPipeline:
             contexts = contexts[:self.config.rerank_top_n]
             self.logger.info(f"Reranked contexts, final count: {len(contexts)}")
             self.logger.debug(f"Reranked contexts: {contexts}")
+        else:
+            self.logger.debug("Skipping reranker, use_rerank is False")
+            contexts = contexts[:top_k]
 
-        # TODO： filter重复文本
+        # TODO： filter重复文本使用hash值或uuid
         
         # 构建Prompt
         self.logger.debug("Building prompt for LLM...")

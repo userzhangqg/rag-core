@@ -71,6 +71,7 @@ class HybridRetriever(RetrievalBase):
             try:
                 vector_results = self.vector_retriever.search(query, top_k * 2, score_threshold)
                 self.logger.debug(f"Vector search returned {len(vector_results)} results")
+                self.logger.debug(f"Vector search results top 5: {vector_results[:5]}")
             except Exception as e:
                 self.logger.warning(f"Vector search failed: {e}")
         
@@ -80,7 +81,7 @@ class HybridRetriever(RetrievalBase):
             try:
                 text_results = self.bm25_retriever.search(query, top_k * 2, score_threshold)
                 self.logger.debug(f"BM25 search returned {len(text_results)} results")
-                # self.logger.debug(f"BM25 search results: {text_results}")
+                self.logger.debug(f"BM25 search results top 5: {text_results[:5]}")
             except Exception as e:
                 self.logger.warning(f"BM25 search failed: {e}")
         
@@ -128,11 +129,11 @@ class HybridRetriever(RetrievalBase):
         )
         
         # Limit to top_k results
-        final_results = sorted_results[:top_k]
+        # final_results = sorted_results[:top_k]
         
         # Format results to match expected structure
         formatted_results = []
-        for result in final_results:
+        for result in sorted_results:
             formatted_results.append({
                 'text': result['text'],
                 'metadata': result['metadata'],
