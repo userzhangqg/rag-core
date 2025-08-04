@@ -15,7 +15,7 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from core.embedding.sijiblob_embedding import SiliconFlowEmbedding
+from core.embedding.siliconflow_embedding import SiliconFlowEmbedding
 from core.vector.weaviate_vector import WeaviateVector
 
 

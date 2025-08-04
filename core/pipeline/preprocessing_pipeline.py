@@ -18,7 +18,7 @@ from core.chunking.recursive_char_text_chunk import RecursiveCharTextChunk
 from core.vector.weaviate_vector import WeaviateVector
 from core.embedding.base import EmbeddingBase
 from core.embedding.local_api_embedding import LocalAPIEmbedding
-from core.embedding.sijiblob_embedding import SiliconFlowEmbedding
+from core.embedding.siliconflow_embedding import SiliconFlowEmbedding  
 from conf.config import RAGConfig
 from utils.logger import get_module_logger
     
