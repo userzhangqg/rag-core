@@ -312,7 +312,9 @@ def create_gradio_interface():
                         text_input = gr.Textbox(
                             label="Paste text content here",
                             lines=9,
-                            placeholder="Enter your text content here..."
+                            max_lines=9,
+                            placeholder="Enter your text content here...",
+                            elem_classes=["full-height"]
                         )
                     with gr.Row(elem_classes=["button-container"]):
                         add_text_btn = gr.Button("➕ Add Text", variant="primary", size="lg")
