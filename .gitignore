@@ -12,9 +12,12 @@ prompt.txt
 .vscode/
 *.swp
 *.swo
+.trae/
 
 # Logs
 logs/
 *.log
 
 tmp/
+
+mineru-output/

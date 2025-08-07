@@ -9,6 +9,12 @@ import sys
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+# Initialize logging
+from conf.config import RAGConfig
+from utils.logger import setup_logger
+config = RAGConfig.from_config_file()
+setup_logger(config)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 

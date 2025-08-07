@@ -14,6 +14,7 @@ from core.retrieval.factory import RetrievalFactory
 from core.llm.factory import LLMFactory
 from core.reranker.factory import RerankerFactory
 from core.prompt.engine import PromptEngine
+from core.parser.factory import ParserFactory
 
 
 class RAGPipeline:
@@ -38,6 +39,13 @@ class RAGPipeline:
         # 初始化预处理管道
         self.logger.debug("Initializing preprocessing pipeline...")
         self.preprocessing_pipeline = PreprocessingPipeline(self.config)
+        
+        # 初始化解析器
+        # self.logger.debug("Initializing parser...")
+        # self.parser = ParserFactory.create_parser(
+        #     parser_type=self.config.parser_type,
+        #     mineru_parser_backend=self.config.mineru_parser_backend
+        # )
         
         # 初始化向量存储
         self.logger.debug("Initializing vector store...")

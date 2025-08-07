@@ -345,9 +345,10 @@ def create_gradio_interface():
             with gr.Column(elem_classes=["chat-qa-container"]):
                 # Chat-style message display
                 chat_display = gr.Chatbot(
+                    type="messages",
                     elem_classes=["chat-messages"],
                     height=500,
-                    bubble_full_width=False,
+                    # bubble_full_width=False,
                     show_copy_button=True
                 )
                 

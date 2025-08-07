@@ -10,6 +10,8 @@ import yaml
 from dataclasses import dataclass, field
 from typing import Optional, Dict, Any, List
 
+from yaml import parser
+
 
 @dataclass
 class LoggingConfig:
@@ -76,6 +78,25 @@ class RAGConfig:
     remove_hyperlinks: bool = False
     remove_images: bool = False
     enable_metadata: bool = True
+    parser_type: str = "fast"  # PDF解析器类型："fast"或"mineru"
+    mineru_parser_backend: str = "vlm-sglang-client"  # MineruParser的后端类型："vlm-sglang-client"或"pipeline"
+    
+    # 文件类型到解析器类型的映射配置
+    parser_config: Dict[str, str] = field(default_factory=lambda: {
+        ".pdf": "auto",      # "auto"表示根据parser_type自动选择
+        ".md": "markdown",   # Markdown解析器
+        ".markdown": "markdown",
+        ".docx": "docx",     # DOCX解析器（待实现）
+        ".doc": "docx",
+        ".xlsx": "excel",    # Excel解析器（待实现）
+        ".xls": "excel",
+        ".pptx": "powerpoint",  # PowerPoint解析器（待实现）
+        ".ppt": "powerpoint",
+        ".html": "html",     # HTML解析器（待实现）
+        ".htm": "html",
+        ".txt": "text",      # 文本解析器
+        ".text": "text"
+    })
     
     # 向量化参数
     batch_size: int = 32
@@ -190,6 +211,8 @@ class RAGConfig:
             remove_hyperlinks=rag_config.get('remove_hyperlinks', False),
             remove_images=rag_config.get('remove_images', False),
             enable_metadata=rag_config.get('enable_metadata', True),
+            parser_type=rag_config.get('parser_type', "fast"),
+            mineru_parser_backend=rag_config.get('mineru_parser_backend', "vlm-sglang-client"),
             batch_size=rag_config.get('batch_size', 32),
             embedding_provider=embedding_config.get('provider', "local_api"),
             embedding_api_key=embedding_config.get('siliconflow', {}).get('api_key'),

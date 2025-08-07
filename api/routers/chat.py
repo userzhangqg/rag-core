@@ -12,7 +12,6 @@ from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 
 from core.pipeline.rag_pipeline import RAGPipeline, RAGConfig
-from utils.logger import setup_logger
 from api.models import ChatRequest, ChatResponse, ErrorResponse
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -27,7 +26,6 @@ def get_pipeline() -> RAGPipeline:
         config = RAGConfig.from_config_file()
         # 配置日志级别
         config.logging_config.module_levels['llm'] = 'INFO'
-        setup_logger(config)
         _pipeline = RAGPipeline(config)
     return _pipeline
 

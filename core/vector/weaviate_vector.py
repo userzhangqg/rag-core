@@ -40,13 +40,17 @@ class WeaviateVector(VectorBase):
         self.embedding_model = embedding_model
         
         # Initialize Weaviate client
-
-        connection_params = weaviate.connect.ConnectionParams.from_url(
-            url=weaviate_url,
-            grpc_port=grpc_port
-        )
-        client = weaviate.WeaviateClient(connection_params=connection_params, skip_init_checks=True)
-        client.connect()
+        try:
+            connection_params = weaviate.connect.ConnectionParams.from_url(
+                url=weaviate_url,
+                grpc_port=grpc_port
+            )
+            client = weaviate.WeaviateClient(connection_params=connection_params, skip_init_checks=True)
+            client.connect()
+        except weaviate.exceptions.ConnectionError as e:
+            self.logger.error(f"Failed to connect to Weaviate: {e}")
+            client.close()
+            raise
 
         self.client = client
         

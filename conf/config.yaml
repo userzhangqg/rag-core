@@ -85,6 +85,8 @@ rag:
   remove_hyperlinks: true
   remove_images: true
   enable_metadata: true
+  parser_type: "mineru"  # Parser类型，"fast"或"mineru"
+  mineru_parser_backend: "vlm-sglang-client"  # MineruParser的后端类型，"vlm-sglang-client"或"pipeline"
   batch_size: 32
   retrieve_top_k: 20
   rerank_top_n: 5

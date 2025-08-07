@@ -5,8 +5,10 @@ from langchain_community.document_loaders import UnstructuredMarkdownLoader
 from core.parser.base import BaseParser
 
 class MarkdownParser(BaseParser):
-    def __init__(self, remove_hyperlinks: bool = False, remove_images: bool = False):
-        super().__init__()
+    supported_extensions = [".md", ".markdown"]
+    
+    def __init__(self, remove_hyperlinks: bool = False, remove_images: bool = False, **kwargs):
+        super().__init__(remove_hyperlinks=remove_hyperlinks, remove_images=remove_images, **kwargs)
         self._remove_hyperlinks = remove_hyperlinks
         self._remove_images = remove_images
 
@@ -22,6 +24,11 @@ class MarkdownParser(BaseParser):
             List[Document]: 解析后的文档列表
         """
         self.logger.debug(f"Starting markdown parsing with source_type: {source_type}")
+
+        self.logger.debug(f"Parser Config: {self.config}")
+        if self.config.get("parse_by_chapter", False):
+            self.logger.debug("Parsing markdown with sections")
+            return self.parse_with_sections(source, source_type)
         
         if source_type == "file":
             self.logger.debug(f"Parsing markdown from file: {source}")

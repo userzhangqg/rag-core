@@ -21,6 +21,7 @@ from core.embedding.local_api_embedding import LocalAPIEmbedding
 from core.embedding.siliconflow_embedding import SiliconFlowEmbedding  
 from conf.config import RAGConfig
 from utils.logger import get_module_logger
+from core.parser.factory import ParserFactory
     
 
 class DocumentProcessingPipeline:
@@ -43,12 +44,17 @@ class DocumentProcessingPipeline:
         
         self.logger.info("Initializing DocumentProcessingPipeline...")
         
-        # 初始化组件
-        self.logger.debug("Initializing MarkdownParser...")
-        self.parser = MarkdownParser(
+        # 初始化解析器工厂配置
+        from core.parser.factory import ParserFactory
+        ParserFactory.initialize_config(
+            pdf_parser_type=self.config.parser_type,
+            mineru_parser_backend=self.config.mineru_parser_backend,
             remove_hyperlinks=self.config.remove_hyperlinks,
-            remove_images=self.config.remove_images
+            remove_images=self.config.remove_images,
+            parse_by_chapter=self.config.parse_by_chapter,
+            parser_mapping=getattr(self.config, 'parser_config', None)
         )
+        self.parser_factory = ParserFactory()
         
         self.logger.debug("Initializing RecursiveCharTextChunk...")
         self.chunker = RecursiveCharTextChunk(
@@ -111,11 +117,15 @@ class DocumentProcessingPipeline:
             
             self.logger.info(f"Starting to process file: {file_path}")
             
+            # 根据文件类型自动选择解析器
+            parser = self.parser_factory.auto_detect_parser(file_path)
+            self.logger.info(f"Using parser: {parser.__class__.__name__} for file: {file_path}")
+            
             # 根据配置选择解析方式
-            if self.config.parse_by_chapter:
-                documents = self.parser.parse_with_sections(str(file_path), source_type="file")
-            else:
-                documents = self.parser.parse(str(file_path), source_type="file")
+            # if self.config.parse_by_chapter and hasattr(parser, 'parse_with_sections'):
+            #     documents = parser.parse_with_sections(str(file_path), source_type="file")
+            # else:
+            documents = parser.parse(str(file_path), source_type="file")
             
             if not documents:
                 self.logger.warning(f"File content is empty: {file_path}")
@@ -188,11 +198,14 @@ class DocumentProcessingPipeline:
                 self.logger.warning("Content is empty")
                 return []
             
+            # 智能内容类型选择解析器
+            parser = self.parser_factory.create_smart_parser_for_content(content)
+            
             # 根据配置选择解析方式
-            if self.config.parse_by_chapter:
-                documents = self.parser.parse_with_sections(content, source_type="content")
+            if self.config.parse_by_chapter and hasattr(parser, 'parse_with_sections'):
+                documents = parser.parse_with_sections(content, source_type="content")
             else:
-                documents = self.parser.parse(content, source_type="content")
+                documents = parser.parse(content, source_type="content")
             
             if not documents:
                 self.logger.warning("Content is empty")
@@ -304,9 +317,12 @@ class DocumentProcessingPipeline:
     
     def get_pipeline_info(self) -> Dict[str, Any]:
         """获取管道配置信息"""
+        from core.parser.factory import ParserFactory
+        
         return {
             "parser_config": {
-                "type": "MarkdownParser",
+                "supported_extensions": ParserFactory.get_supported_extensions(),
+                "pdf_parser_type": self.config.parser_type,
                 "remove_hyperlinks": self.config.remove_hyperlinks,
                 "remove_images": self.config.remove_images
             },

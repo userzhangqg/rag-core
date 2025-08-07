@@ -1,0 +1,29 @@
+# MinerU VLM PDF解析器依赖
+
+# 核心依赖
+mineru>=0.2.0
+
+# 日志
+loguru>=0.7.0
+
+# 异步支持
+asyncio
+
+# 类型提示
+typing-extensions>=4.0.0
+
+# 可选依赖（根据使用的后端）
+# transformers>=4.35.0  # 如果使用transformers后端
+# torch>=2.0.0         # 如果使用本地模型
+# sglang>=0.2.0        # 如果使用sglang后端
+
+# 开发工具（可选）
+pytest>=7.0.0          # 测试
+black>=23.0.0          # 代码格式化
+isort>=5.0.0           # 导入排序
+
+# 注意：
+# 1. 请确保MinerU已正确安装
+# 2. 如果使用本地模型，需要安装对应的深度学习框架
+# 3. 如果使用远程VLM服务，确保网络连接正常
+# 4. 具体版本要求请参考MinerU官方文档

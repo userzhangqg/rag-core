@@ -14,7 +14,6 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 
 from core.pipeline.rag_pipeline import RAGPipeline, RAGConfig
-from utils.logger import setup_logger
 from api.models import FileUploadResponse, ErrorResponse
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -27,7 +26,6 @@ def get_pipeline() -> RAGPipeline:
     global _pipeline
     if _pipeline is None:
         config = RAGConfig.from_config_file()
-        setup_logger(config)
         _pipeline = RAGPipeline(config)
     return _pipeline
 
