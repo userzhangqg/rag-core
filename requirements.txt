@@ -18,3 +18,5 @@ uvicorn
 gradio>=4.0.0
 mineru
 PyMuPDF
+beautifulsoup4>=4.12.0
+lxml>=4.9.0

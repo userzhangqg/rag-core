@@ -70,7 +70,7 @@ logging:
     DocumentProcessingPipeline: DEBUG
     
     # 其他模块
-    default: DEBUG  # 默认级别
+    default: INFO  # 默认级别
 
 # Debug mode configuration
 debug:
@@ -90,6 +90,11 @@ rag:
   batch_size: 32
   retrieve_top_k: 20
   rerank_top_n: 5
+  
+  # Markdown解析器配置
+  markdown_clean_html: true
+  markdown_preserve_html_imgs: false
+  markdown_preserve_html_tables: true
   
   # 混合检索配置
   retrieval_type: "hybrid"  # 可选: "hybrid", "vector", "text"

@@ -17,7 +17,7 @@ class BaseParser(ABC):
     supported_extensions: List[str] = []
     
     def __init__(self, **kwargs):
-        self.logger = get_module_logger(self.__class__.__name__)
+        self.logger = get_module_logger("parser")
         self.config = kwargs
     
     @abstractmethod

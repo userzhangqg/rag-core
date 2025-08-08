@@ -52,7 +52,10 @@ class DocumentProcessingPipeline:
             remove_hyperlinks=self.config.remove_hyperlinks,
             remove_images=self.config.remove_images,
             parse_by_chapter=self.config.parse_by_chapter,
-            parser_mapping=getattr(self.config, 'parser_config', None)
+            parser_mapping=getattr(self.config, 'parser_config', None),
+            markdown_clean_html=self.config.markdown_clean_html,
+            markdown_preserve_html_imgs=self.config.markdown_preserve_html_imgs,
+            markdown_preserve_html_tables=self.config.markdown_preserve_html_tables
         )
         self.parser_factory = ParserFactory()
         

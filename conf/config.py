@@ -81,6 +81,11 @@ class RAGConfig:
     parser_type: str = "fast"  # PDF解析器类型："fast"或"mineru"
     mineru_parser_backend: str = "vlm-sglang-client"  # MineruParser的后端类型："vlm-sglang-client"或"pipeline"
     
+    # Markdown解析器参数
+    markdown_clean_html: bool = True
+    markdown_preserve_html_imgs: bool = False
+    markdown_preserve_html_tables: bool = True
+    
     # 文件类型到解析器类型的映射配置
     parser_config: Dict[str, str] = field(default_factory=lambda: {
         ".pdf": "auto",      # "auto"表示根据parser_type自动选择
@@ -210,6 +215,9 @@ class RAGConfig:
             parse_by_element=rag_config.get('parse_by_element', False),
             remove_hyperlinks=rag_config.get('remove_hyperlinks', False),
             remove_images=rag_config.get('remove_images', False),
+            markdown_clean_html=rag_config.get('markdown_clean_html', True),
+            markdown_preserve_html_imgs=rag_config.get('markdown_preserve_html_imgs', False),
+            markdown_preserve_html_tables=rag_config.get('markdown_preserve_html_tables', True),
             enable_metadata=rag_config.get('enable_metadata', True),
             parser_type=rag_config.get('parser_type', "fast"),
             mineru_parser_backend=rag_config.get('mineru_parser_backend', "vlm-sglang-client"),

@@ -7,10 +7,13 @@ from core.parser.base import BaseParser
 class MarkdownParser(BaseParser):
     supported_extensions = [".md", ".markdown"]
     
-    def __init__(self, remove_hyperlinks: bool = False, remove_images: bool = False, **kwargs):
+    def __init__(self, remove_hyperlinks: bool = False, remove_images: bool = False, markdown_clean_html: bool = True, **kwargs):
         super().__init__(remove_hyperlinks=remove_hyperlinks, remove_images=remove_images, **kwargs)
         self._remove_hyperlinks = remove_hyperlinks
         self._remove_images = remove_images
+        self._markdown_clean_html = markdown_clean_html
+        self._markdown_preserve_html_imgs = kwargs.get("markdown_preserve_html_imgs", False)
+        self._markdown_preserve_html_tables = kwargs.get("markdown_preserve_html_tables", True)
 
     def parse(self, source: Union[str, bytes], source_type: str = "file") -> List[Document]:
         """
@@ -111,9 +114,15 @@ class MarkdownParser(BaseParser):
     def _post_process_documents(self, documents: List[Document]) -> List[Document]:
         """对解析后的文档进行后处理"""
         self.logger.debug(f"Starting post-processing of {len(documents)} documents")
-        self.logger.debug(f"Remove hyperlinks: {self._remove_hyperlinks}, Remove images: {self._remove_images}")
+        self.logger.debug(f"Remove hyperlinks: {self._remove_hyperlinks}, Remove images: {self._remove_images}, Clean HTML: {self._markdown_clean_html}")
         
         original_count = len(documents)
+        
+        # 清理HTML标签
+        if self._markdown_clean_html:
+            documents = [Document(page_content=self._clean_html_tags(doc.page_content), metadata=doc.metadata) 
+                        for doc in documents]
+            self.logger.debug("Cleaned HTML tags from documents")
         
         if self._remove_hyperlinks:
             documents = [Document(page_content=self._remove_links(doc.page_content), metadata=doc.metadata) 
@@ -130,14 +139,102 @@ class MarkdownParser(BaseParser):
         return documents
 
     def _remove_links(self, content: str) -> str:
-        """移除超链接"""
-        pattern = r"\[(.*?)\]\((.*?)\)"
-        return re.sub(pattern, r"\1", content)
+        """移除超链接，但不移除图片链接
+        
+        正确处理嵌套链接，如：[![image](url)](link) 应该只移除外层链接，保留内层图片
+        """
+        # 使用更精确的正则表达式匹配嵌套结构
+        # 匹配不是以!开头的链接，且内容中不包含图片标记
+        
+        # 先处理嵌套链接：找到所有嵌套结构并替换
+        nested_pattern = r'(\[(!\[.*?\]\(.*?\))\]\(.*?\))'
+        
+        def replace_nested_link(match):
+            # 对于嵌套链接，只移除外层，保留内层图片
+            full_match = match.group(1)
+            inner_img = match.group(2)  # 内层图片
+            return inner_img
+        
+        # 处理嵌套链接
+        content = re.sub(nested_pattern, replace_nested_link, content)
+        
+        # 处理剩余的普通链接（不包括图片链接）
+        link_pattern = r'(?<!\!)\[([^\[\]]*?)\]\(([^()]*?)\)'
+        content = re.sub(link_pattern, r'\1', content)
+        
+        return content
 
     def _remove_imgs(self, content: str) -> str:
         """移除图片"""
         pattern = r"!\[(.*?)\]\((.*?)\)"
-        return re.sub(pattern, r"\1", content)
+        return re.sub(pattern, "", content)
+
+    def _clean_html_tags(self, content: str, preserve_imgs: bool = None, preserve_tables: bool = None) -> str:
+        """清理HTML标签，根据配置保留图片和/或表格
+        
+        使用BeautifulSoup精确清理HTML内容，根据配置决定是否保留<img>和<table>及其子元素
+        保留的HTML元素保持在原始位置，包括嵌套结构
+        
+        Args:
+            content: 包含HTML的文本内容
+            
+        Returns:
+            str: 清理后的文本内容，根据配置保留图片和/或表格在原始位置
+        """
+        if not self._markdown_clean_html:
+            return content
+            
+        try:
+            import re
+            from bs4 import BeautifulSoup
+            
+            # 使用BeautifulSoup解析内容
+            soup = BeautifulSoup(content, 'html.parser')
+            
+            # 定义要保留的标签集合（包括表格的所有子标签）
+            preserve_tags = set()
+            
+            # 根据配置决定是否保留图片和表格
+            preserve_imgs = preserve_imgs if preserve_imgs is not None else self._markdown_preserve_html_imgs
+            preserve_tables = preserve_tables if preserve_tables is not None else self._markdown_preserve_html_tables
+            if preserve_imgs:
+                preserve_tags.add('img')
+                self.logger.debug("Markdown Parser clean HTML tags preserving <img> elements")
+            if preserve_tables:  # 默认保留表格
+                preserve_tags.update(['table', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th', 
+                                      'caption', 'col', 'colgroup'])
+                self.logger.debug("Markdown Parser clean HTML tags preserving <table> elements")
+            
+            # 定义要清理的标签（除了保留的标签外，其他都清理）
+            def should_remove_tag(tag):
+                return tag.name and tag.name.lower() not in preserve_tags
+            
+            # 找到所有要移除的标签
+            tags_to_remove = []
+            for tag in soup.find_all():
+                if should_remove_tag(tag):
+                    tags_to_remove.append(tag)
+            
+            # 移除不需要的标签，但保留其内容
+            for tag in tags_to_remove:
+                tag.unwrap()
+            
+            # 获取清理后的HTML内容，保留指定的标签
+            cleaned_html = str(soup.encode(formatter=None), 'utf-8')
+            
+            # 清理多余的空格和空行
+            cleaned_html = re.sub(r'\n\s*\n\s*\n', '\n\n', cleaned_html)
+            cleaned_html = re.sub(r'[ \t]+', ' ', cleaned_html)
+            cleaned_html = cleaned_html.strip()
+            
+            return cleaned_html
+                
+        except ImportError:
+            self.logger.warning("BeautifulSoup not available, skipping HTML cleaning")
+            return content
+        except Exception as e:
+            self.logger.error(f"Error during HTML cleaning: {str(e)}")
+            return content
 
     def load_file(self, filepath: str) -> str:
         """加载文件内容"""
@@ -338,10 +435,15 @@ class MarkdownParser(BaseParser):
             raise ValueError("source_type must be 'file', 'content' or 'bytes'")
         
         # 后处理内容
+        if self._markdown_clean_html:
+            content = self._clean_html_tags(content)
+            self.logger.debug(f"After clean_html content: \n {content}")
         if self._remove_hyperlinks:
             content = self._remove_links(content)
+            self.logger.debug(f"After remove_links content: \n {content}")
         if self._remove_images:
             content = self._remove_imgs(content)
+            self.logger.debug(f"After remove_imgs content: \n {content}")
         
         return self.parse_by_sections(content)
 
